@@ -55,16 +55,20 @@ Supported licences live in `data/licences.json`.
 
 ## HTTP
 
-`public/index.php` exposes the same call as JSON. After `composer install`:
+`public/api.php` exposes the same call as JSON. `public/index.html` is a small form that posts to it and shows the three outputs.
+
+After `composer install`:
 
 ```bash
 php -S localhost:8080 -t public
 ```
 
+Open http://localhost:8080/ for the form, or call the API directly:
+
 When the package is installed in another project, point the web server at `vendor/tobijat/attribution-generator-api/public`.
 
 ```bash
-curl -s -X POST http://localhost:8080 \
+curl -s -X POST http://localhost:8080/api.php \
 	-H 'Content-Type: application/json' \
 	-d '{"image":"https://commons.wikimedia.org/wiki/File:Helene_Fischer_2010.jpg","type_of_use":"online"}'
 ```

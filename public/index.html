@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Attribution Generator API</title>
+	<style>
+		:root {
+			--ink: #1a1f1c;
+			--muted: #5c675f;
+			--line: #d5ddd7;
+			--surface: #f4f7f4;
+			--accent: #0f6b4c;
+			--accent-ink: #fff;
+			--danger: #8b1e1e;
+			--danger-bg: #f8ecec;
+			--mono: "IBM Plex Mono", "Consolas", "Menlo", monospace;
+			--sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			color: var(--ink);
+			background:
+				radial-gradient(circle at top left, #e8f2eb 0, transparent 42%),
+				linear-gradient(180deg, #fbfcfb 0%, var(--surface) 100%);
+			font: 16px/1.45 var(--sans);
+			min-height: 100vh;
+		}
+
+		main {
+			width: min(920px, calc(100% - 2rem));
+			margin: 0 auto;
+			padding: 2.5rem 0 4rem;
+		}
+
+		h1 {
+			margin: 0 0 0.35rem;
+			font-size: clamp(1.6rem, 3vw, 2.1rem);
+			letter-spacing: -0.02em;
+		}
+
+		.lede {
+			margin: 0 0 1.75rem;
+			color: var(--muted);
+			max-width: 40rem;
+		}
+
+		form {
+			display: grid;
+			gap: 1rem;
+			padding: 1.25rem;
+			border: 1px solid var(--line);
+			background: rgba(255, 255, 255, 0.82);
+		}
+
+		.row {
+			display: grid;
+			gap: 1rem;
+		}
+
+		@media (min-width: 720px) {
+			.row.two { grid-template-columns: 1fr 1fr; }
+			.row.three { grid-template-columns: 1fr 1fr 1fr; }
+		}
+
+		label {
+			display: grid;
+			gap: 0.35rem;
+			font-size: 0.92rem;
+			font-weight: 600;
+		}
+
+		label span.hint {
+			font-weight: 400;
+			color: var(--muted);
+			font-size: 0.85rem;
+		}
+
+		input[type="text"],
+		input[type="url"],
+		select {
+			width: 100%;
+			padding: 0.65rem 0.75rem;
+			border: 1px solid var(--line);
+			background: #fff;
+			font: inherit;
+			color: inherit;
+		}
+
+		input:focus,
+		select:focus,
+		button:focus-visible {
+			outline: 2px solid color-mix(in srgb, var(--accent) 55%, white);
+			outline-offset: 1px;
+		}
+
+		.checks {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 1rem 1.5rem;
+			align-items: center;
+			padding-top: 0.25rem;
+		}
+
+		.checks label {
+			display: flex;
+			align-items: center;
+			gap: 0.45rem;
+			font-weight: 500;
+		}
+
+		#edited-fields[hidden] {
+			display: none !important;
+		}
+
+		.actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			align-items: center;
+			padding-top: 0.25rem;
+		}
+
+		button {
+			appearance: none;
+			border: 0;
+			background: var(--accent);
+			color: var(--accent-ink);
+			padding: 0.7rem 1.1rem;
+			font: inherit;
+			font-weight: 600;
+			cursor: pointer;
+		}
+
+		button:disabled {
+			opacity: 0.55;
+			cursor: wait;
+		}
+
+		button.secondary {
+			background: transparent;
+			color: var(--ink);
+			border: 1px solid var(--line);
+		}
+
+		.status {
+			color: var(--muted);
+			font-size: 0.9rem;
+		}
+
+		.status.error {
+			color: var(--danger);
+		}
+
+		#results {
+			margin-top: 1.75rem;
+			display: grid;
+			gap: 1rem;
+		}
+
+		#results[hidden] {
+			display: none;
+		}
+
+		.panel {
+			border: 1px solid var(--line);
+			background: #fff;
+		}
+
+		.panel header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 0.75rem;
+			padding: 0.7rem 0.9rem;
+			border-bottom: 1px solid var(--line);
+			background: var(--surface);
+			font-weight: 600;
+			font-size: 0.92rem;
+		}
+
+		.panel header button {
+			padding: 0.35rem 0.65rem;
+			font-size: 0.82rem;
+			font-weight: 500;
+			background: #fff;
+			color: var(--ink);
+			border: 1px solid var(--line);
+		}
+
+		.panel .body {
+			padding: 0.9rem;
+			overflow-x: auto;
+		}
+
+		.panel pre,
+		.panel code {
+			margin: 0;
+			font: 0.9rem/1.45 var(--mono);
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.panel.error {
+			border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+			background: var(--danger-bg);
+		}
+
+		.preview {
+			line-height: 1.5;
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Attribution Generator API</h1>
+		<p class="lede">
+			Enter a Wikimedia file link and the questionnaire answers, then send them to
+			<code>api.php</code>. The response shows the text, plain text and HTML attribution.
+		</p>
+
+		<form id="request-form">
+			<label>
+				Image link
+				<span class="hint">Commons or Wikipedia file page / file URL</span>
+				<input type="url" name="image" required
+					placeholder="https://commons.wikimedia.org/wiki/File:Example.jpg"
+					value="https://commons.wikimedia.org/wiki/File:Helene_Fischer_2010.jpg">
+			</label>
+
+			<div class="row three">
+				<label>
+					Type of use
+					<select name="type_of_use" required>
+						<option value="online" selected>online</option>
+						<option value="print">print</option>
+					</select>
+				</label>
+				<label>
+					Language
+					<select name="language">
+						<option value="de" selected>de</option>
+						<option value="en">en</option>
+						<option value="es">es</option>
+						<option value="pl">pl</option>
+						<option value="pt">pt</option>
+						<option value="uk">uk</option>
+					</select>
+				</label>
+				<label>
+					Licence id
+					<span class="hint">Used when the work was edited</span>
+					<input type="text" name="licence" placeholder="original or cc-by-sa-4.0" value="original">
+				</label>
+			</div>
+
+			<div class="row two">
+				<label>
+					Author override
+					<span class="hint">Only if the file page has no author</span>
+					<input type="text" name="author" placeholder="Author name">
+				</label>
+				<div class="checks">
+					<label>
+						<input type="checkbox" name="author_unknown" value="true">
+						Author unknown
+					</label>
+					<label>
+						<input type="checkbox" name="edited" value="true" id="edited">
+						Edited
+					</label>
+				</div>
+			</div>
+
+			<div class="row two" id="edited-fields" hidden>
+				<label>
+					Change
+					<input type="text" name="change" placeholder="cropped, colored, …">
+				</label>
+				<label>
+					Creator of the change
+					<input type="text" name="creator" placeholder="Your name">
+				</label>
+			</div>
+
+			<div class="actions">
+				<button type="submit" id="submit">Generate attribution</button>
+				<button type="button" class="secondary" id="reset">Reset</button>
+				<span class="status" id="status" aria-live="polite"></span>
+			</div>
+		</form>
+
+		<section id="results" hidden>
+			<article class="panel" id="error-panel" hidden>
+				<header>Error</header>
+				<div class="body"><pre id="error-body"></pre></div>
+			</article>
+
+			<article class="panel" data-result="text">
+				<header>
+					<span>Text</span>
+					<button type="button" data-copy="text">Copy</button>
+				</header>
+				<div class="body preview" id="out-text-preview"></div>
+				<div class="body"><pre id="out-text"></pre></div>
+			</article>
+
+			<article class="panel" data-result="plain_text">
+				<header>
+					<span>Plain text</span>
+					<button type="button" data-copy="plain_text">Copy</button>
+				</header>
+				<div class="body"><pre id="out-plain_text"></pre></div>
+			</article>
+
+			<article class="panel" data-result="html">
+				<header>
+					<span>HTML</span>
+					<button type="button" data-copy="html">Copy</button>
+				</header>
+				<div class="body preview" id="out-html-preview"></div>
+				<div class="body"><pre id="out-html"></pre></div>
+			</article>
+		</section>
+	</main>
+
+	<script>
+		(function () {
+			const form = document.getElementById('request-form');
+			const edited = document.getElementById('edited');
+			const editedFields = document.getElementById('edited-fields');
+			const submit = document.getElementById('submit');
+			const status = document.getElementById('status');
+			const results = document.getElementById('results');
+			const errorPanel = document.getElementById('error-panel');
+			const errorBody = document.getElementById('error-body');
+			const defaults = new FormData(form);
+
+			function syncEditedFields() {
+				editedFields.hidden = !edited.checked;
+			}
+
+			edited.addEventListener('change', syncEditedFields);
+			syncEditedFields();
+
+			document.getElementById('reset').addEventListener('click', function () {
+				form.reset();
+				for (const [key, value] of defaults.entries()) {
+					const field = form.elements.namedItem(key);
+					if (!field) continue;
+					if (field instanceof RadioNodeList) continue;
+					if (field.type === 'checkbox') {
+						field.checked = defaults.getAll(key).includes(field.value);
+					} else {
+						field.value = value;
+					}
+				}
+				syncEditedFields();
+				results.hidden = true;
+				status.textContent = '';
+				status.className = 'status';
+			});
+
+			function payloadFromForm() {
+				const data = new FormData(form);
+				const payload = {
+					image: String(data.get('image') || '').trim(),
+					type_of_use: String(data.get('type_of_use') || 'online'),
+					language: String(data.get('language') || 'de'),
+					author_unknown: data.get('author_unknown') === 'true',
+					edited: data.get('edited') === 'true'
+				};
+
+				const author = String(data.get('author') || '').trim();
+				if (author) payload.author = author;
+
+				if (payload.edited) {
+					const change = String(data.get('change') || '').trim();
+					const creator = String(data.get('creator') || '').trim();
+					const licence = String(data.get('licence') || '').trim();
+					if (change) payload.change = change;
+					if (creator) payload.creator = creator;
+					if (licence) payload.licence = licence;
+				}
+
+				return payload;
+			}
+
+			function showError(message) {
+				results.hidden = false;
+				errorPanel.hidden = false;
+				errorBody.textContent = message;
+				['text', 'plain_text', 'html'].forEach(function (key) {
+					const panel = results.querySelector('[data-result="' + key + '"]');
+					if (panel) panel.hidden = true;
+				});
+			}
+
+			function showSuccess(body) {
+				results.hidden = false;
+				errorPanel.hidden = true;
+				['text', 'plain_text', 'html'].forEach(function (key) {
+					const panel = results.querySelector('[data-result="' + key + '"]');
+					if (panel) panel.hidden = false;
+					const value = body[key] || '';
+					document.getElementById('out-' + key).textContent = value;
+				});
+				document.getElementById('out-text-preview').innerHTML = body.text || '';
+				document.getElementById('out-html-preview').innerHTML = body.html || '';
+			}
+
+			form.addEventListener('submit', async function (event) {
+				event.preventDefault();
+				submit.disabled = true;
+				status.className = 'status';
+				status.textContent = 'Requesting…';
+
+				try {
+					const response = await fetch('api.php', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+						body: JSON.stringify(payloadFromForm())
+					});
+					const body = await response.json();
+					if (!response.ok || body.error) {
+						const err = body.error || {};
+						showError((err.code ? err.code + ': ' : '') + (err.message || response.statusText || 'Request failed'));
+						status.textContent = 'Failed (' + response.status + ')';
+						status.className = 'status error';
+						return;
+					}
+					showSuccess(body);
+					status.textContent = 'OK';
+				} catch (error) {
+					showError(error instanceof Error ? error.message : String(error));
+					status.textContent = 'Failed';
+					status.className = 'status error';
+				} finally {
+					submit.disabled = false;
+				}
+			});
+
+			results.addEventListener('click', async function (event) {
+				const button = event.target.closest('[data-copy]');
+				if (!button) return;
+				const key = button.getAttribute('data-copy');
+				const text = document.getElementById('out-' + key).textContent;
+				try {
+					await navigator.clipboard.writeText(text);
+					button.textContent = 'Copied';
+					setTimeout(function () { button.textContent = 'Copy'; }, 1200);
+				} catch (error) {
+					button.textContent = 'Copy failed';
+					setTimeout(function () { button.textContent = 'Copy'; }, 1200);
+				}
+			});
+		})();
+	</script>
+</body>
+</html>
