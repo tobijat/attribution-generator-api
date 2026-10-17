@@ -1,0 +1,25 @@
+{
+	"name": "tobijat/attribution-generator-api",
+	"description": "PHP API that builds attribution lines for Wikimedia files.",
+	"type": "library",
+	"license": "GPL-3.0-or-later",
+	"require": {
+		"php": ">=8.1",
+		"ext-dom": "*",
+		"ext-json": "*",
+		"ext-libxml": "*"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^10.5 || ^11.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"AttributionGenerator\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"AttributionGenerator\\Tests\\": "tests/php/"
+		}
+	}
+}
